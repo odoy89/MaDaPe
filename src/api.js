@@ -1,5 +1,5 @@
 import { db } from "./firebase";
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbwu1KqIzKNTgij2uC74IrJFgmgKQXEAhYqRj93Rr52StSWtrxWoHJRUCciu_GW1PdSU/exec";
 
@@ -20,6 +20,25 @@ export const apiService = {
   },
   hapusPelanggan: async (idpel) => {
     await deleteDoc(doc(db, "pelanggan", idpel.toString()));
+  },
+  importPelangganBatch: async (dataArray, onProgress) => {
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+      const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+      const batch = writeBatch(db);
+      
+      chunk.forEach(data => {
+        if (!data.idpel) return;
+        const docRef = doc(db, "pelanggan", data.idpel.toString());
+        batch.set(docRef, data); // Gunakan set tanpa merge jika asumsinya data excel menimpa/membuat baru
+      });
+      
+      await batch.commit();
+      
+      if (onProgress) {
+        onProgress(Math.min(i + CHUNK_SIZE, dataArray.length), dataArray.length);
+      }
+    }
   },
   
   // === TO ===
@@ -43,6 +62,25 @@ export const apiService = {
     const snap = await getDocs(collection(db, "to"));
     const promises = snap.docs.map(d => deleteDoc(d.ref));
     await Promise.all(promises);
+  },
+  importTOBatch: async (dataArray, onProgress) => {
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+      const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+      const batch = writeBatch(db);
+      
+      chunk.forEach(data => {
+        if (!data.idpel) return;
+        const docRef = doc(db, "to", data.idpel.toString());
+        batch.set(docRef, data);
+      });
+      
+      await batch.commit();
+      
+      if (onProgress) {
+        onProgress(Math.min(i + CHUNK_SIZE, dataArray.length), dataArray.length);
+      }
+    }
   },
 
   // === HISTORY LOKASI ===
