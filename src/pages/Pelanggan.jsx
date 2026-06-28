@@ -260,11 +260,11 @@ export default function Pelanggan() {
         const json = XLSX.utils.sheet_to_json(ws);
         
         const defaultUnit = dbUnits.length > 0 ? dbUnits[0].nama : "17100";
-        let count = 0;
+        let dataToImport = [];
         for (let row of json) {
           if (row.IDPEL || row.idpel) {
             const idpel = (row.IDPEL || row.idpel).toString();
-              apiService.tambahPelanggan({
+            dataToImport.push({
               unit: row.UNIT || row.unit || defaultUnit,
               idpel: idpel,
               nama: row.NAMA || row.nama || "",
@@ -280,11 +280,31 @@ export default function Pelanggan() {
               keterangan: row.KETERANGAN || row.keterangan || "",
               user: localStorage.getItem('user_id') || 'ADMIN'
             });
-            count++;
           }
         }
-        Swal.fire({ icon: 'success', title: 'Berhasil Import', text: `Berhasil import ${count} data pelanggan!` });
-        loadAllData();
+        
+        if (dataToImport.length > 0) {
+          Swal.fire({
+            title: 'Sedang Mengimport...',
+            html: 'Memproses <b>0</b> / ' + dataToImport.length + ' data.',
+            allowOutsideClick: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          });
+          
+          await apiService.importPelangganBatch(dataToImport, (processed, total) => {
+            const b = Swal.getHtmlContainer()?.querySelector('b');
+            if (b) {
+              b.textContent = processed;
+            }
+          });
+          
+          Swal.fire({ icon: 'success', title: 'Berhasil Import', text: `Berhasil import ${dataToImport.length} data pelanggan!` });
+          loadAllData();
+        } else {
+          Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Tidak ada data valid yang ditemukan.' });
+        }
       } catch(error) {
         Swal.fire({ icon: 'error', title: 'Gagal Import', text: error.message });
       } finally {
