@@ -246,7 +246,7 @@ export default function Settings() {
                     {users.map((u, i) => (
                       <tr key={i} className="hover:bg-blue-50/50 transition-colors">
                         <td className="px-6 py-4 font-semibold text-slate-700">{u.user}</td>
-                        <td className="px-6 py-4 text-slate-500">{u.password}</td>
+                        <td className="px-6 py-4 text-slate-500">{"•".repeat(u.password?.length || 4)}</td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded-md text-xs font-bold inline-flex items-center gap-1 ${u.akses === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                             {u.akses === 'ADMIN' && <Shield size={12} />}
@@ -380,7 +380,7 @@ export default function Settings() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
-                <input value={password} onChange={e => setPassword(e.target.value)} required className="w-full p-2.5 border rounded-lg" />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full p-2.5 border rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Akses</label>
