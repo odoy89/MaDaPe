@@ -264,22 +264,25 @@ export default function Pelanggan() {
         for (let row of json) {
           if (row.IDPEL || row.idpel) {
             const idpel = (row.IDPEL || row.idpel).toString();
-            dataToImport.push({
-              unit: row.UNIT || row.unit || defaultUnit,
-              idpel: idpel,
-              nama: row.NAMA || row.nama || "",
-              tarif: row.TARIF || row.tarif || "",
-              daya: row.DAYA || row.daya || "",
-              alamat: row.ALAMAT || row.alamat || "",
-              peruntukan: row.PERUNTUKAN || row.peruntukan || "RUMAH TANGGA",
-              fotoBangunan: row["FOTO BANGUNAN"] || row.fotoBangunan || "",
-              fotoKwh: row["FOTO KWH METER"] || row.fotoKwh || "",
-              maps: row.MAPS || row.maps || "",
-              latitude: row.LATITUDE || row.latitude || "",
-              longitude: row.LONGITUDE || row.longitude || "",
-              keterangan: row.KETERANGAN || row.keterangan || "",
-              user: localStorage.getItem('user_id') || 'ADMIN'
-            });
+            const isExist = data.some(d => d.idpel === idpel);
+            if (!isExist) {
+              dataToImport.push({
+                unit: row.UNIT || row.unit || defaultUnit,
+                idpel: idpel,
+                nama: row.NAMA || row.nama || "",
+                tarif: row.TARIF || row.tarif || "",
+                daya: row.DAYA || row.daya || "",
+                alamat: row.ALAMAT || row.alamat || "",
+                peruntukan: row.PERUNTUKAN || row.peruntukan || "RUMAH TANGGA",
+                fotoBangunan: row["FOTO BANGUNAN"] || row.fotoBangunan || "",
+                fotoKwh: row["FOTO KWH METER"] || row.fotoKwh || "",
+                maps: row.MAPS || row.maps || "",
+                latitude: row.LATITUDE || row.latitude || "",
+                longitude: row.LONGITUDE || row.longitude || "",
+                keterangan: row.KETERANGAN || row.keterangan || "",
+                user: localStorage.getItem('user_id') || 'ADMIN'
+              });
+            }
           }
         }
         
