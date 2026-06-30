@@ -18,6 +18,8 @@ export default function Pelanggan() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
 
   // Helper to fix Google Drive image URLs so they can be rendered in <img> tags
   const getSafeImageUrl = (url) => {
@@ -152,7 +154,9 @@ export default function Pelanggan() {
         apiService.getSettingsUnit(),
         apiService.getSettingsTarif()
       ]);
-      setData(resData);
+      setData(resData.data);
+      setLastDoc(resData.lastVisible);
+      setHasMore(resData.data.length >= 50);
       setDbUnits(resUnits);
       setDbTarifs(resTarifs);
     } catch(e) {
@@ -162,14 +166,39 @@ export default function Pelanggan() {
     }
   }
 
-  const filtered = data.filter(d => 
-    (d.nama || "").toLowerCase().includes(search.toLowerCase()) || 
-    (d.idpel || "").toString().includes(search)
-  );
+  const loadMoreData = async () => {
+    if (!lastDoc || !hasMore) return;
+    try {
+      const resData = await apiService.getPelangganNext(lastDoc);
+      setData(prev => [...prev, ...resData.data]);
+      setLastDoc(resData.lastVisible);
+      setHasMore(resData.data.length >= 50);
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!search.trim()) {
+      loadAllData();
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiService.searchPelanggan(search.trim());
+      setData(res.data);
+      setHasMore(false);
+      setLastDoc(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(filtered.map(d => d.idpel));
+      setSelectedIds(data.map(d => d.idpel));
     } else {
       setSelectedIds([]);
     }
@@ -396,18 +425,22 @@ export default function Pelanggan() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari IDPEL atau Nama..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-            />
+          <div className="relative w-96 flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Cari IDPEL / Awalan Nama..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+            <button onClick={handleSearch} className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">Cari</button>
           </div>
           <div className="text-sm text-slate-500 font-medium">
-            Menampilkan {filtered.length} dari {data.length} data
+            Menampilkan {data.length} data
           </div>
         </div>
 
@@ -424,7 +457,7 @@ export default function Pelanggan() {
                     <input 
                       type="checkbox" 
                       className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                      checked={data.length > 0 && selectedIds.length === data.length}
                       onChange={handleSelectAll}
                     />
                   </th>
@@ -437,7 +470,7 @@ export default function Pelanggan() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map((d, i) => (
+                {data.map((d, i) => (
                   <tr key={i} className="hover:bg-blue-50/80 transition-colors">
                     <td className="px-6 py-4 text-center">
                       <input 
@@ -528,9 +561,18 @@ export default function Pelanggan() {
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && (
+                {data.length === 0 && (
                   <tr>
                     <td colSpan="7" className="text-center py-10 text-slate-500">Data tidak ditemukan.</td>
+                  </tr>
+                )}
+                {hasMore && (
+                  <tr>
+                    <td colSpan="7" className="text-center py-4 bg-slate-50 border-t border-slate-200">
+                      <button onClick={loadMoreData} className="px-6 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition shadow-sm font-medium">
+                        Muat Lebih Banyak Data...
+                      </button>
+                    </td>
                   </tr>
                 )}
               </tbody>
