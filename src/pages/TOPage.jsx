@@ -15,12 +15,13 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function TOPage() {
   const [data, setData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
   const [historyData, setHistoryData] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
   const [showPhoto, setShowPhoto] = useState(null);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
 
   const userStr = localStorage.getItem('user');
   const userObj = userStr ? JSON.parse(userStr) : null;
@@ -96,43 +97,58 @@ export default function TOPage() {
     );
   };
 
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  useEffect(() => {
-    setFilteredData(data.filter(d => 
-      (d.nama || "").toLowerCase().includes(search.toLowerCase()) || 
-      (d.idpel || "").toString().includes(search)
-    ));
-  }, [search, data]);
-
   async function loadAllData() {
     setLoading(true);
     try {
-      const [resTO, resHist, resUnits, resTarifs] = await Promise.all([
+      const [resTO, resUnits, resTarifs] = await Promise.all([
         apiService.getTO(),
-        apiService.getAllHistory(),
         apiService.getSettingsUnit(),
         apiService.getSettingsTarif()
       ]);
-      
-      const histMap = {};
-      for (const h of resHist) {
-        if (!histMap[h.idpel] || new Date(h.timestamp) > new Date(histMap[h.idpel].timestamp)) {
-          histMap[h.idpel] = h;
-        }
-      }
-      setHistoryData(histMap);
-      setData(resTO);
+      setData(resTO.data);
+      setLastDoc(resTO.lastVisible);
+      setHasMore(resTO.data.length >= 50);
       setDbUnits(resUnits);
       setDbTarifs(resTarifs);
+      
+      // We skip fetching ALL history as it will crash with 800k data. 
+      // The status might need to be tracked on the TO document itself in the future.
     } catch(e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   }
+
+  const loadMoreData = async () => {
+    if (!lastDoc || !hasMore) return;
+    try {
+      const resTO = await apiService.getTONext(lastDoc);
+      setData(prev => [...prev, ...resTO.data]);
+      setLastDoc(resTO.lastVisible);
+      setHasMore(resTO.data.length >= 50);
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!search.trim()) {
+      loadAllData();
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiService.searchTO(search.trim());
+      setData(res.data);
+      setHasMore(false);
+      setLastDoc(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const exportExcel = () => {
     if (data.length === 0) {
@@ -338,18 +354,22 @@ export default function TOPage() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari IDPEL atau Nama..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-            />
+          <div className="relative w-96 flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Cari IDPEL / Awalan Nama..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+            <button onClick={handleSearch} className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">Cari</button>
           </div>
           <div className="text-sm text-slate-500 font-medium">
-            Menampilkan {filteredData.length} dari {data.length} data
+            Menampilkan {data.length} data
           </div>
         </div>
 
@@ -374,9 +394,9 @@ export default function TOPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredData.map((d, i) => {
-                  const hist = historyData[d.idpel];
-                  const isDone = !!hist;
+                {data.map((d, i) => {
+                  // Fallback until backend has an isDone boolean natively
+                  const isDone = false; 
                   return (
                   <tr key={i} className="hover:bg-blue-50/50 transition-colors">
                     <td className="px-4 py-4 font-medium">{d.user || "-"}</td>
@@ -422,9 +442,18 @@ export default function TOPage() {
                     </td>
                   </tr>
                 )})}
-                {filteredData.length === 0 && (
+                {data.length === 0 && (
                   <tr>
                     <td colSpan="9" className="text-center py-10 text-slate-500">Data tidak ditemukan.</td>
+                  </tr>
+                )}
+                {hasMore && (
+                  <tr>
+                    <td colSpan="9" className="text-center py-4 bg-slate-50 border-t border-slate-200">
+                      <button onClick={loadMoreData} className="px-6 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition shadow-sm font-medium">
+                        Muat Lebih Banyak Data...
+                      </button>
+                    </td>
                   </tr>
                 )}
               </tbody>
