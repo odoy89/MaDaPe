@@ -1,13 +1,53 @@
 import { db } from "./firebase";
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, writeBatch, query, limit, startAfter, orderBy, where } from "firebase/firestore";
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbwu1KqIzKNTgij2uC74IrJFgmgKQXEAhYqRj93Rr52StSWtrxWoHJRUCciu_GW1PdSU/exec";
 
 export const apiService = {
   // === PELANGGAN ===
-  getPelanggan: async () => {
-    const snap = await getDocs(collection(db, "pelanggan"));
-    return snap.docs.map(doc => doc.data());
+  getPelanggan: async (limitCount = 50) => {
+    const q = query(collection(db, "pelanggan"), orderBy("idpel"), limit(limitCount));
+    const snap = await getDocs(q);
+    const lastVisible = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+    return {
+      data: snap.docs.map(doc => doc.data()),
+      lastVisible: lastVisible
+    };
+  },
+  getPelangganNext: async (lastVisible, limitCount = 50) => {
+    if (!lastVisible) return { data: [], lastVisible: null };
+    const q = query(collection(db, "pelanggan"), orderBy("idpel"), startAfter(lastVisible), limit(limitCount));
+    const snap = await getDocs(q);
+    const newLastVisible = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+    return {
+      data: snap.docs.map(doc => doc.data()),
+      lastVisible: newLastVisible
+    };
+  },
+  searchPelanggan: async (keyword) => {
+    if (!keyword) return { data: [], lastVisible: null };
+    // Prefix search for IDPEL
+    const q = query(
+      collection(db, "pelanggan"),
+      where("idpel", ">=", keyword),
+      where("idpel", "<=", keyword + "\uf8ff"),
+      limit(50)
+    );
+    const snap = await getDocs(q);
+    let data = snap.docs.map(doc => doc.data());
+    
+    // If not found, try searching by exact/prefix name (Uppercase assumption)
+    if (data.length === 0) {
+      const q2 = query(
+        collection(db, "pelanggan"),
+        where("nama", ">=", keyword.toUpperCase()),
+        where("nama", "<=", keyword.toUpperCase() + "\uf8ff"),
+        limit(50)
+      );
+      const snap2 = await getDocs(q2);
+      data = snap2.docs.map(doc => doc.data());
+    }
+    return { data, lastVisible: null };
   },
   tambahPelanggan: async (data, isEdit = false) => {
     if (!data.idpel) throw new Error("IDPEL is required");
@@ -22,7 +62,7 @@ export const apiService = {
     await deleteDoc(doc(db, "pelanggan", idpel.toString()));
   },
   importPelangganBatch: async (dataArray, onProgress) => {
-    const CHUNK_SIZE = 500;
+    const CHUNK_SIZE = 250;
     for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
       const chunk = dataArray.slice(i, i + CHUNK_SIZE);
       const batch = writeBatch(db);
@@ -42,9 +82,36 @@ export const apiService = {
   },
   
   // === TO ===
-  getTO: async () => {
-    const snap = await getDocs(collection(db, "to"));
-    return snap.docs.map(doc => doc.data());
+  getTO: async (limitCount = 50) => {
+    const q = query(collection(db, "to"), orderBy("idpel"), limit(limitCount));
+    const snap = await getDocs(q);
+    const lastVisible = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+    return {
+      data: snap.docs.map(doc => doc.data()),
+      lastVisible: lastVisible
+    };
+  },
+  getTONext: async (lastVisible, limitCount = 50) => {
+    if (!lastVisible) return { data: [], lastVisible: null };
+    const q = query(collection(db, "to"), orderBy("idpel"), startAfter(lastVisible), limit(limitCount));
+    const snap = await getDocs(q);
+    const newLastVisible = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+    return {
+      data: snap.docs.map(doc => doc.data()),
+      lastVisible: newLastVisible
+    };
+  },
+  searchTO: async (keyword) => {
+    if (!keyword) return { data: [], lastVisible: null };
+    const q = query(collection(db, "to"), where("idpel", ">=", keyword), where("idpel", "<=", keyword + "\uf8ff"), limit(50));
+    const snap = await getDocs(q);
+    let data = snap.docs.map(doc => doc.data());
+    if (data.length === 0) {
+      const q2 = query(collection(db, "to"), where("nama", ">=", keyword.toUpperCase()), where("nama", "<=", keyword.toUpperCase() + "\uf8ff"), limit(50));
+      const snap2 = await getDocs(q2);
+      data = snap2.docs.map(doc => doc.data());
+    }
+    return { data, lastVisible: null };
   },
   tambahTO: async (data, isEdit = false) => {
     if (!data.idpel) throw new Error("IDPEL is required");
@@ -64,7 +131,7 @@ export const apiService = {
     await Promise.all(promises);
   },
   importTOBatch: async (dataArray, onProgress) => {
-    const CHUNK_SIZE = 500;
+    const CHUNK_SIZE = 250;
     for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
       const chunk = dataArray.slice(i, i + CHUNK_SIZE);
       const batch = writeBatch(db);
