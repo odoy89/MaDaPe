@@ -212,17 +212,20 @@ export default function TOPage() {
         for (let row of json) {
           if (row.IDPEL || row.idpel) {
             const idpel = (row.IDPEL || row.idpel).toString();
-            dataToImport.push({
-              unit: row.UNIT || row.unit || defaultUnit,
-              idpel: idpel,
-              nama: row.NAMA || row.nama || "",
-              tarif: row.TARIF || row.tarif || "",
-              daya: row.DAYA || row.daya || "",
-              alamat: row.ALAMAT || row.alamat || "",
-              latitude: row.LATITUDE || row.latitude || "",
-              longitude: row.LONGITUDE || row.longitude || "",
-              user: row.USER || row.user || ""
-            });
+            const isExist = data.some(d => d.idpel === idpel);
+            if (!isExist) {
+              dataToImport.push({
+                unit: row.UNIT || row.unit || defaultUnit,
+                idpel: idpel,
+                nama: row.NAMA || row.nama || "",
+                tarif: row.TARIF || row.tarif || "",
+                daya: row.DAYA || row.daya || "",
+                alamat: row.ALAMAT || row.alamat || "",
+                latitude: row.LATITUDE || row.latitude || "",
+                longitude: row.LONGITUDE || row.longitude || "",
+                user: row.USER || row.user || ""
+              });
+            }
           }
         }
         
