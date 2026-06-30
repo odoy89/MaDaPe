@@ -51,25 +51,28 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const [pel, to, hist, users] = await Promise.all([
-          apiService.getPelanggan(),
-          apiService.getTO(),
+        const [totalPel, totalTO, totalHist, toRes, hist] = await Promise.all([
+          apiService.getTotalPelanggan(),
+          apiService.getTotalTO(),
+          apiService.getTotalHistory(),
+          apiService.getTO(), // limit 50 untuk peta awal
           apiService.getAllHistory()
         ]);
         
         // Match logic with app dashboard
-        const toAktif = to.length;
+        const toAktif = totalTO;
         const historyIDPELs = new Set(hist.map(h => h.idpel));
         const toSelesai = historyIDPELs.size;
         
         setStats({
-          pelanggan: pel.length,
+          pelanggan: totalPel,
           toAktif,
           toSelesai,
-          history: hist.length
+          history: totalHist
         });
 
-        setAllTOs(to);
+        // toRes.data karena getTO sekarang me-return { data, lastVisible }
+        setAllTOs(toRes.data || []);
         setHistoryIDs(historyIDPELs);
 
       } catch(e) {
