@@ -1,5 +1,5 @@
 import { db } from "./firebase";
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, writeBatch, query, limit, startAfter, orderBy, where } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, writeBatch, query, limit, startAfter, orderBy, where, getCountFromServer } from "firebase/firestore";
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbwu1KqIzKNTgij2uC74IrJFgmgKQXEAhYqRj93Rr52StSWtrxWoHJRUCciu_GW1PdSU/exec";
 
@@ -13,6 +13,10 @@ export const apiService = {
       data: snap.docs.map(doc => doc.data()),
       lastVisible: lastVisible
     };
+  },
+  getTotalPelanggan: async () => {
+    const snap = await getCountFromServer(collection(db, "pelanggan"));
+    return snap.data().count;
   },
   getPelangganNext: async (lastVisible, limitCount = 50) => {
     if (!lastVisible) return { data: [], lastVisible: null };
@@ -91,6 +95,10 @@ export const apiService = {
       lastVisible: lastVisible
     };
   },
+  getTotalTO: async () => {
+    const snap = await getCountFromServer(collection(db, "to"));
+    return snap.data().count;
+  },
   getTONext: async (lastVisible, limitCount = 50) => {
     if (!lastVisible) return { data: [], lastVisible: null };
     const q = query(collection(db, "to"), orderBy("idpel"), startAfter(lastVisible), limit(limitCount));
@@ -158,6 +166,10 @@ export const apiService = {
   getAllHistory: async () => {
     const snap = await getDocs(collection(db, "history"));
     return snap.docs.map(doc => doc.data());
+  },
+  getTotalHistory: async () => {
+    const snap = await getCountFromServer(collection(db, "history"));
+    return snap.data().count;
   },
 
   // === SETTINGS UNIT ===
